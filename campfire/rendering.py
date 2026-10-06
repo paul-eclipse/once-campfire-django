@@ -71,7 +71,7 @@ def room_data(room, user=None):
 
 
 GENERATED = settings.BASE_DIR / "assets/generated"
-MANIFEST = json.loads((GENERATED / "manifest.json").read_text())
+MANIFEST = json.loads((GENERATED / "manifest.json").read_text(encoding="utf-8"))
 
 
 def asset(name):
@@ -108,7 +108,7 @@ def allEmoji(s):
 
 
 TRANSLATIONS = json.loads(
-    (settings.BASE_DIR / "campfire/translations.json").read_text()
+    (settings.BASE_DIR / "campfire/translations.json").read_text(encoding="utf-8")
 )
 
 
@@ -150,8 +150,8 @@ env.globals.update(
     versionTime=versionTime,
     epoch=epoch,
     iso=iso,
-    stylesheets=lambda: Markup((GENERATED / "stylesheets.html").read_text()),
-    importmap=lambda: Markup((GENERATED / "importmap.html").read_text()),
+    stylesheets=lambda: Markup((GENERATED / "stylesheets.html").read_text(encoding="utf-8")),
+    importmap=lambda: Markup((GENERATED / "importmap.html").read_text(encoding="utf-8")),
     translate=translate,
     firstName=lambda s: s.split()[0] if s else "",
     lower=lambda s: s.lower(),

@@ -18,7 +18,9 @@ from django.test import override_settings
 from campfire import rails
 
 VECTORS = json.loads(
-    (Path(__file__).resolve().parents[1] / "vectors/rails_compat.json").read_text()
+    (Path(__file__).resolve().parents[1] / "vectors/rails_compat.json").read_text(
+        encoding="utf-8"
+    )
 )
 
 

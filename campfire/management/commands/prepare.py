@@ -17,7 +17,7 @@ class Command(BaseCommand):
         if not db.execute(
             "SELECT name FROM sqlite_master WHERE name='accounts'"
         ).fetchone():
-            db.executescript((settings.BASE_DIR / "campfire/schema.sql").read_text())
+            db.executescript((settings.BASE_DIR / "campfire/schema.sql").read_text(encoding="utf-8"))
             versions = [
                 p.stem.split("_", 1)[0]
                 for p in (settings.BASE_DIR / "reference/db/migrate").glob("*.rb")

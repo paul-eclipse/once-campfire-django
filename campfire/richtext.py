@@ -11,7 +11,7 @@ import nh3
 from . import rails
 from .models import Attachment, Blob, User
 
-SOUNDS = json.loads(Path(__file__).with_name("sounds.json").read_text())
+SOUNDS = json.loads(Path(__file__).with_name("sounds.json").read_text(encoding="utf-8"))
 
 TAGS = {
     "a",

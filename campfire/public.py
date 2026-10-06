@@ -86,7 +86,7 @@ def avatar(request, user_id):
     color = colors[zlib.crc32(str(user.id).encode()) % len(colors)]
     source = (
         settings.BASE_DIR / "reference/app/views/users/avatars/show.svg.erb"
-    ).read_text()
+    ).read_text(encoding="utf-8")
     source = (
         source.replace("<%= avatar_background_color(@user) %>", color)
         .replace("<%= @user.initials %>", html.escape(initials))
@@ -171,7 +171,7 @@ def manifest(request):
 
 def service_worker(request):
     return HttpResponse(
-        (settings.BASE_DIR / "reference/app/views/pwa/service_worker.js").read_text(),
+        (settings.BASE_DIR / "reference/app/views/pwa/service_worker.js").read_text(encoding="utf-8"),
         content_type="application/javascript",
     )
 

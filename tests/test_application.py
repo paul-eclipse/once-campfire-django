@@ -47,9 +47,9 @@ from campfire.models import (
 class ApplicationTests(unittest.TestCase):
     def setUp(self):
         jobs._rates.clear()
-        self.directory = tempfile.TemporaryDirectory(
-            dir=Path(__file__).resolve().parents[1] / "tmp"
-        )
+        tmp_dir = Path(__file__).resolve().parents[1] / "tmp"
+        tmp_dir.mkdir(exist_ok=True)
+        self.directory = tempfile.TemporaryDirectory(dir=tmp_dir)
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         self.database = self.root / "db/production.sqlite3"
@@ -64,7 +64,7 @@ class ApplicationTests(unittest.TestCase):
             db.executescript(
                 (
                     Path(__file__).resolve().parents[1] / "campfire/schema.sql"
-                ).read_text()
+                ).read_text(encoding="utf-8")
             )
         self.settings = override_settings(
             STORAGE_PATH=self.root, FILES_PATH=self.files, DATABASE_PATH=self.database
@@ -694,7 +694,9 @@ class ApplicationTests(unittest.TestCase):
         from campfire.richtext import plain_text
 
         vectors = json.loads(
-            (Path(__file__).resolve().parents[1] / "vectors/richtext.json").read_text()
+            (Path(__file__).resolve().parents[1] / "vectors/richtext.json").read_text(
+                encoding="utf-8"
+            )
         )
         for case in vectors["cases"]:
             with self.subTest(case=case["name"]):
