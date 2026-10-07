@@ -489,9 +489,22 @@ def sidebar(request):
     )
     directs = [m for m in memberships if m.room.type == "Rooms::Direct"]
     directs.sort(key=lambda m: m.room.updated_at, reverse=True)
+    direct_room_ids = [m.room_id for m in directs]
+    direct_members = {}
+    if direct_room_ids:
+        for m in (
+            Membership.objects.filter(room_id__in=direct_room_ids)
+            .select_related("user")
+            .order_by("user__name")
+        ):
+            direct_members.setdefault(m.room_id, []).append(m.user)
     rooms = []
     for m in directs + [m for m in memberships if m.room.type != "Rooms::Direct"]:
-        dto = room_data(m.room, request.current_user)
+        dto = room_data(
+            m.room,
+            request.current_user,
+            direct_members=direct_members.get(m.room_id),
+        )
         dto.Unread = bool(m.unread_at)
         rooms.append(dto)
     return page(request, "sidebar", SidebarRooms=rooms, Placeholders=[])

@@ -24,11 +24,11 @@ DATABASES = {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": DATABASE_PATH,
         "OPTIONS": {
-            "timeout": 10,
+            "timeout": 30,
             "transaction_mode": "IMMEDIATE",
-            "init_command": "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;",
+            "init_command": "PRAGMA journal_mode=WAL;",
         },
-        "CONN_MAX_AGE": 0,
+        "CONN_MAX_AGE": 60,
     }
 }
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"

@@ -45,12 +45,15 @@ def user_data(user):
     )
 
 
-def room_data(room, user=None):
-    members = (
-        list(User.objects.filter(memberships__room=room).order_by("name"))
-        if room.type == "Rooms::Direct"
-        else []
-    )
+def room_data(room, user=None, direct_members=None):
+    if room.type == "Rooms::Direct":
+        members = (
+            direct_members
+            if direct_members is not None
+            else list(User.objects.filter(memberships__room=room).order_by("name"))
+        )
+    else:
+        members = []
     others = [u for u in members if not user or u.id != user.id]
     name = (
         ", ".join(u.name for u in others) if room.type == "Rooms::Direct" else room.name
@@ -254,6 +257,31 @@ def context(request, screen, **kwargs):
     return data
 
 
+_MESSAGE_CACHE = {}
+_MESSAGE_CACHE_MAX = 8192
+
+
+def get_message_fragment(dto):
+    boost_key = tuple(
+        (b.ID, epoch(b.BoosterUpdatedAt)) for b in getattr(dto, "Boosts", [])
+    )
+    key = (
+        dto.ID,
+        epoch(getattr(dto, "UpdatedAt", None)),
+        epoch(getattr(dto, "CreatorUpdatedAt", None)),
+        boost_key,
+    )
+    if key in _MESSAGE_CACHE:
+        return _MESSAGE_CACHE[key]
+    fragment = Markup(
+        getattr(env.get_template("pages.html").module, "message_uncached")(dto)
+    )
+    if len(_MESSAGE_CACHE) >= _MESSAGE_CACHE_MAX:
+        _MESSAGE_CACHE.clear()
+    _MESSAGE_CACHE[key] = fragment
+    return fragment
+
+
 def render_text(name, data):
     return str(
         getattr(env.get_template("pages.html").module, name.replace("-", "_"))(data)
@@ -348,25 +376,25 @@ def message_data(messages, origin=""):
                 body = f'<div class="max-inline-size center flex overflow-clip"{style}>{media}</div>'
             else:
                 body = f'<div class="flex-inline align-center gap-half"><img src="{asset("common-file-text.svg")}" width="22" height="22" class="colorize--black" aria-hidden="true"><span>{filename}</span><a class="btn message__action-btn hide-in-ios-pwa" href="{download}"><img src="{asset("download.svg")}" width="20" height="20" aria-hidden="true"><span class="for-screen-reader">Download {filename}</span></a><button class="btn message__action-btn" data-controller="web-share" data-action="web-share#share" data-web-share-files-value="{download}"><img src="{asset("share.svg")}" width="20" height="20" aria-hidden="true"><span class="for-screen-reader">Share {filename}</span></button></div>'
-        result.append(
-            Data(
-                ID=m.id,
-                ClientID=m.client_message_id,
-                CreatorID=m.creator_id,
-                Creator=m.creator.name,
-                CreatorTitle=m.creator.title,
-                CreatorUpdatedAt=m.creator.updated_at,
-                RoomID=m.room_id,
-                RoomName=m.room.name or "",
-                CreatedAt=m.created_at,
-                UpdatedAt=m.updated_at,
-                HTML=Markup('<div class="lexxy-content">' + body + "</div>"),
-                AllEmoji=allEmoji(plain_text(bodies.get(m.id, ""))),
-                Boosts=boosts.get(m.id, []),
-                Attachment=Data(Filename=blob.filename) if blob else None,
-                DownloadURL=blob_url(blob) + "?disposition=attachment" if blob else "",
-                BlobURL=blob_url(blob) if blob else "",
-                Permalink=f"{origin}/rooms/{m.room_id}/@{m.id}",
-            )
+        dto = Data(
+            ID=m.id,
+            ClientID=m.client_message_id,
+            CreatorID=m.creator_id,
+            Creator=m.creator.name,
+            CreatorTitle=m.creator.title,
+            CreatorUpdatedAt=m.creator.updated_at,
+            RoomID=m.room_id,
+            RoomName=m.room.name or "",
+            CreatedAt=m.created_at,
+            UpdatedAt=m.updated_at,
+            HTML=Markup('<div class="lexxy-content">' + body + "</div>"),
+            AllEmoji=allEmoji(plain_text(bodies.get(m.id, ""))),
+            Boosts=boosts.get(m.id, []),
+            Attachment=Data(Filename=blob.filename) if blob else None,
+            DownloadURL=blob_url(blob) + "?disposition=attachment" if blob else "",
+            BlobURL=blob_url(blob) if blob else "",
+            Permalink=f"{origin}/rooms/{m.room_id}/@{m.id}",
         )
+        dto.Fragment = get_message_fragment(dto)
+        result.append(dto)
     return result
