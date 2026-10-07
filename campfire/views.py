@@ -133,8 +133,13 @@ def session(request):
             return HttpResponseRedirect("/first_run")
         return page(request, "login", Email=request.GET.get("email_address", ""))
     if request.method == "DELETE":
+        from .middleware import clear_session_cache
+
         if request.current_session:
+            clear_session_cache(request.current_session.token)
             request.current_session.delete()
+        else:
+            clear_session_cache()
         if request.current_user:
             PushSubscription.objects.filter(
                 user=request.current_user,
@@ -971,6 +976,9 @@ def account_users(request, id=None):
 
 
 def deactivate(user):
+    from .middleware import clear_session_cache
+
+    clear_session_cache()
     with staged_files(), transaction.atomic():
         Membership.objects.filter(user=user).exclude(
             room__type="Rooms::Direct"
@@ -1078,6 +1086,10 @@ def ban(request, user_id):
     user = User.objects.filter(id=user_id).first()
     if not user:
         raise Http404
+    from .middleware import clear_ban_cache, clear_session_cache
+
+    clear_ban_cache()
+    clear_session_cache()
     with staged_files(), transaction.atomic():
         if request.method == "DELETE":
             Ban.objects.filter(user=user).delete()

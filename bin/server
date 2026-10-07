@@ -5,4 +5,4 @@ if [ "${WEB_WORKERS:-1}" -gt 1 ] && [ -z "${REDIS_URL:-}" ]; then
   exit 1
 fi
 python manage.py prepare
-exec uvicorn campfire.asgi:application --host "${BIND:-0.0.0.0}" --port "${HTTP_PORT:-8080}" --workers "${WEB_WORKERS:-1}" --no-access-log --proxy-headers --forwarded-allow-ips "${TRUSTED_PROXIES:-127.0.0.1}"
+exec uvicorn campfire.asgi:application --host "${BIND:-0.0.0.0}" --port "${HTTP_PORT:-8080}" --workers "${WEB_WORKERS:-1}" --loop auto --http auto --no-access-log --proxy-headers --forwarded-allow-ips "${TRUSTED_PROXIES:-127.0.0.1}"

@@ -142,6 +142,28 @@ def nextInvolvement(kind, value):
     return order[(order.index(value) + 1) % len(order)] if value in order else order[0]
 
 
+_STYLESHEETS_HTML = None
+_IMPORTMAP_HTML = None
+
+
+def get_stylesheets():
+    global _STYLESHEETS_HTML
+    if _STYLESHEETS_HTML is None:
+        _STYLESHEETS_HTML = Markup(
+            (GENERATED / "stylesheets.html").read_text(encoding="utf-8")
+        )
+    return _STYLESHEETS_HTML
+
+
+def get_importmap():
+    global _IMPORTMAP_HTML
+    if _IMPORTMAP_HTML is None:
+        _IMPORTMAP_HTML = Markup(
+            (GENERATED / "importmap.html").read_text(encoding="utf-8")
+        )
+    return _IMPORTMAP_HTML
+
+
 env = Environment(
     loader=FileSystemLoader(settings.BASE_DIR / "campfire/templates"),
     autoescape=True,
@@ -153,8 +175,8 @@ env.globals.update(
     versionTime=versionTime,
     epoch=epoch,
     iso=iso,
-    stylesheets=lambda: Markup((GENERATED / "stylesheets.html").read_text(encoding="utf-8")),
-    importmap=lambda: Markup((GENERATED / "importmap.html").read_text(encoding="utf-8")),
+    stylesheets=get_stylesheets,
+    importmap=get_importmap,
     translate=translate,
     firstName=lambda s: s.split()[0] if s else "",
     lower=lambda s: s.lower(),
@@ -259,6 +281,14 @@ def context(request, screen, **kwargs):
 
 _MESSAGE_CACHE = {}
 _MESSAGE_CACHE_MAX = 8192
+_PAGES_MODULE = None
+
+
+def get_pages_module():
+    global _PAGES_MODULE
+    if _PAGES_MODULE is None:
+        _PAGES_MODULE = env.get_template("pages.html").module
+    return _PAGES_MODULE
 
 
 def get_message_fragment(dto):
@@ -273,9 +303,7 @@ def get_message_fragment(dto):
     )
     if key in _MESSAGE_CACHE:
         return _MESSAGE_CACHE[key]
-    fragment = Markup(
-        getattr(env.get_template("pages.html").module, "message_uncached")(dto)
-    )
+    fragment = Markup(getattr(get_pages_module(), "message_uncached")(dto))
     if len(_MESSAGE_CACHE) >= _MESSAGE_CACHE_MAX:
         _MESSAGE_CACHE.clear()
     _MESSAGE_CACHE[key] = fragment
@@ -283,9 +311,7 @@ def get_message_fragment(dto):
 
 
 def render_text(name, data):
-    return str(
-        getattr(env.get_template("pages.html").module, name.replace("-", "_"))(data)
-    )
+    return str(getattr(get_pages_module(), name.replace("-", "_"))(data))
 
 
 def page(request, name, **kwargs):

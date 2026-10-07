@@ -106,8 +106,17 @@ def canonicalize(body):
     return re.sub(r"<figure\b[^>]*>.*?</figure>", trix_figure, body or "", flags=re.S)
 
 
+_SANITIZE_CACHE = {}
+_SANITIZE_CACHE_MAX = 16384
+
+
 def sanitize(body):
-    return nh3.clean(
+    if not body:
+        return ""
+    cached = _SANITIZE_CACHE.get(body)
+    if cached is not None:
+        return cached
+    result = nh3.clean(
         canonicalize(body),
         tags=TAGS,
         attributes=ATTRS,
@@ -115,6 +124,10 @@ def sanitize(body):
         link_rel=None,
         strip_comments=True,
     )
+    if len(_SANITIZE_CACHE) >= _SANITIZE_CACHE_MAX:
+        _SANITIZE_CACHE.clear()
+    _SANITIZE_CACHE[body] = result
+    return result
 
 
 def attachment_attributes(node):
@@ -291,7 +304,16 @@ def plain_node(node):
     return text
 
 
+_PLAIN_TEXT_CACHE = {}
+_PLAIN_TEXT_CACHE_MAX = 16384
+
+
 def plain_text(body):
+    if not body:
+        return ""
+    cached = _PLAIN_TEXT_CACHE.get(body)
+    if cached is not None:
+        return cached
     parser = PlainTree()
     parser.feed(
         canonicalize(body)
@@ -300,7 +322,11 @@ def plain_text(body):
         .replace("\r", "\n")
         .replace("\0", "")
     )
-    return plain_node(parser.root).rstrip("\r\n")
+    result = plain_node(parser.root).rstrip("\r\n")
+    if len(_PLAIN_TEXT_CACHE) >= _PLAIN_TEXT_CACHE_MAX:
+        _PLAIN_TEXT_CACHE.clear()
+    _PLAIN_TEXT_CACHE[body] = result
+    return result
 
 
 def reconcile_embeds(rich):

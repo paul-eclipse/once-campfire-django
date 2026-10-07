@@ -1,4 +1,5 @@
 import secrets
+import time
 from datetime import timedelta
 from io import BytesIO
 
@@ -7,6 +8,55 @@ from django.http import HttpResponse
 from . import rails
 from .context import request_host
 from .models import Ban, Session, User, now
+
+_BAN_CACHE = {"ips": None, "ts": 0}
+_SESSION_CACHE = {}
+_SESSION_CACHE_MAX = 4096
+
+
+def is_ip_banned(ip):
+    if not ip:
+        return False
+    now_ts = time.time()
+    if _BAN_CACHE["ips"] is None or (now_ts - _BAN_CACHE["ts"] > 5):
+        _BAN_CACHE["ips"] = set(Ban.objects.values_list("ip_address", flat=True))
+        _BAN_CACHE["ts"] = now_ts
+    return ip in _BAN_CACHE["ips"]
+
+
+def get_cached_session(token):
+    now_ts = time.time()
+    cached = _SESSION_CACHE.get(token)
+    if cached and (now_ts - cached["ts"] < 15):
+        return cached["session"], cached["user"]
+    session = (
+        Session.objects.select_related("user")
+        .filter(token=token, user__status=0)
+        .first()
+    )
+    if session:
+        if len(_SESSION_CACHE) >= _SESSION_CACHE_MAX:
+            _SESSION_CACHE.clear()
+        _SESSION_CACHE[token] = {
+            "session": session,
+            "user": session.user,
+            "ts": now_ts,
+        }
+        return session, session.user
+    _SESSION_CACHE.pop(token, None)
+    return None, None
+
+
+def clear_session_cache(token=None):
+    if token:
+        _SESSION_CACHE.pop(token, None)
+    else:
+        _SESSION_CACHE.clear()
+
+
+def clear_ban_cache():
+    _BAN_CACHE["ips"] = None
+    _BAN_CACHE["ts"] = 0
 
 
 class SessionMiddleware:
@@ -43,23 +93,21 @@ class SessionMiddleware:
         if raw:
             try:
                 token = rails.verify_cookie("session_token", raw)
-                session = (
-                    Session.objects.select_related("user")
-                    .filter(token=token, user__status=0)
-                    .first()
-                )
+                session, user = get_cached_session(token)
                 if session:
                     request.current_session, request.current_user = (
                         session,
-                        session.user,
+                        user,
                     )
                     if session.last_active_at < now() - timedelta(hours=1):
+                        now_dt = now()
                         Session.objects.filter(id=session.id).update(
-                            last_active_at=now(),
-                            updated_at=now(),
+                            last_active_at=now_dt,
+                            updated_at=now_dt,
                             user_agent=request.headers.get("User-Agent", ""),
                             ip_address=request.META.get("REMOTE_ADDR"),
                         )
+                        session.last_active_at = now_dt
             except (ValueError, TypeError):
                 pass
         request.authenticated_by_bot = False
@@ -133,7 +181,7 @@ class SecurityMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if Ban.objects.filter(ip_address=request.META.get("REMOTE_ADDR", "")).exists():
+        if is_ip_banned(request.META.get("REMOTE_ADDR", "")):
             return HttpResponse(status=403)
         if (
             request.method in ("PATCH", "PUT")
